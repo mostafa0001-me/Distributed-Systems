@@ -1,16 +1,27 @@
-use tokio::net::TcpStream;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use std::fs;
+use std::io::prelude::*;
+use std::net::{TcpStream, Shutdown};
 
-#[tokio::main]
-async fn main() {
-    let mut socket = TcpStream::connect("127.0.0.1:8080").await.unwrap();
+fn main() {
+    let image_path = "/home/mostafa/Distributed-Systems-Project/client/4k_image.jpg"; // Example image path
+    let middleware_address = "127.0.0.1:7878"; // Middleware address
 
-    let msg = "Leader candidate: Node 1";
-    socket.write_all(msg.as_bytes()).await.unwrap();
+    // Read the 4K image from the file system
+    let image_data = fs::read(image_path).expect("Failed to read image file");
 
-    let mut buf = [0u8; 1024];
-    let n = socket.read(&mut buf).await.unwrap();
+    // Send the image data to the middleware
+    let mut stream = TcpStream::connect(middleware_address).expect("Could not connect to middleware");
 
-    println!("Server response: {}", String::from_utf8_lossy(&buf[..n]));
+    // Write image data to the middleware
+    stream.write_all(&image_data).expect("Failed to send image to middleware");
+    stream.shutdown(Shutdown::Write).expect("Failed to shut down writing side of stream");
+
+    // Receive the encrypted image from the middleware
+    let mut buffer = Vec::new();
+    stream.read_to_end(&mut buffer).expect("Failed to receive data from middleware");
+
+    // Save or log the encrypted image
+    fs::write("/home/mostafa/Distributed-Systems-Project/client/encrypted_image.jpg", buffer).expect("Failed to save encrypted image");
+    println!("Image encrypted and saved!");
 }
 
